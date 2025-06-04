@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import datetime
+from streamlit_gsheets import GSheetsConnection
 
 # Constants
-DATA_FILE = "bookings.csv"
 SESSIONS_PER_SCHOOL = 2
 SESSION_LENGTH = 2
 START_HOUR = 9
@@ -11,18 +11,21 @@ END_HOUR = 17
 MAX_TEAMS_PER_SLOT = 3
 MAX_TEAMS_PER_DAY = 6
 
-# Load or initialize booking data
-def load_bookings():
-    try:
-        return pd.read_csv(DATA_FILE)
-    except FileNotFoundError:
-        return pd.DataFrame(columns=["School", "Contact", "Date", "Time Slot"])
+# Connect to Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
 
+# Load bookings from Google Sheet
+def load_bookings():
+    df = conn.read(ttl="0")  # disable caching
+    df = df.dropna(how="all")  # remove any empty rows
+    return df
+
+# Save new booking to Google Sheet
 def save_booking(new_booking):
-    bookings = load_bookings()
+    df = load_bookings()
     new_df = pd.DataFrame([new_booking])
-    bookings = pd.concat([bookings, new_df], ignore_index=True)
-    bookings.to_csv(DATA_FILE, index=False)
+    updated_df = pd.concat([df, new_df], ignore_index=True)
+    conn.update(updated_df)
 
 def get_all_slots():
     return [f"{hour}:00 - {hour + SESSION_LENGTH}:00" for hour in range(START_HOUR, END_HOUR, SESSION_LENGTH)]
@@ -32,7 +35,6 @@ def get_available_slots(date_str):
     bookings = load_bookings()
     date_bookings = bookings[bookings["Date"] == date_str]
 
-    # Block day if already has 6 bookings
     if len(date_bookings) >= MAX_TEAMS_PER_DAY:
         return []
 
@@ -52,7 +54,7 @@ def get_dates_with_availability(days_ahead=30):
             dates.append(day)
     return dates
 
-# App UI
+# --- Streamlit UI ---
 st.title("🎓 School Training Slot Booking")
 st.info("Each session is 2 hours. A school may book a maximum of 2 sessions on different days. "
         "Each time slot can hold up to 3 teams. Each day can host a maximum of 6 teams.")
@@ -60,7 +62,6 @@ st.info("Each session is 2 hours. A school may book a maximum of 2 sessions on d
 school = st.text_input("School Name")
 contact = st.text_input("Contact Email or Phone")
 
-# Only show dates with availability
 available_dates = get_dates_with_availability()
 
 if not available_dates:
@@ -80,17 +81,14 @@ if st.button("Book This Slot"):
     bookings = load_bookings()
     school_bookings = bookings[bookings["School"] == school]
 
-    # Check if the school already booked 2 times
     if len(school_bookings) >= SESSIONS_PER_SCHOOL:
         st.error(f"❌ {school} has already booked {SESSIONS_PER_SCHOOL} sessions.")
         st.stop()
 
-    # Ensure school is not booking the same date twice
     if str(date) in school_bookings["Date"].values:
         st.error(f"❌ {school} has already booked a session on {date}. Please select a different day.")
         st.stop()
 
-    # Check if the school is trying to double-book same time slot
     if ((school_bookings["Date"] == str(date)) & (school_bookings["Time Slot"] == time_slot)).any():
         st.error(f"❌ {school} has already booked this slot.")
         st.stop()
