@@ -25,7 +25,8 @@ def save_booking(new_booking):
     df = load_bookings()
     new_df = pd.DataFrame([new_booking])
     updated_df = pd.concat([df, new_df], ignore_index=True)
-    conn.update(updated_df)
+    conn.update(data=updated_df)  # ✅ Corrected line
+
 
 def get_all_slots():
     return [f"{hour}:00 - {hour + SESSION_LENGTH}:00" for hour in range(START_HOUR, END_HOUR, SESSION_LENGTH)]
