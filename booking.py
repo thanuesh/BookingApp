@@ -17,7 +17,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # Load bookings from Google Sheet
 def load_bookings():
     df = conn.read(ttl="0")  # disable caching
-    df = df.dropna(how="all")  # remove any empty rows
+    df = df.dropna(how="all")  # remove empty rows
     return df
 
 # Save new booking to Google Sheet
@@ -25,12 +25,13 @@ def save_booking(new_booking):
     df = load_bookings()
     new_df = pd.DataFrame([new_booking])
     updated_df = pd.concat([df, new_df], ignore_index=True)
-    conn.update(data=updated_df)  # ✅ Corrected line
+    conn.update(data=updated_df)
 
-
+# Generate all possible time slots
 def get_all_slots():
     return [f"{hour}:00 - {hour + SESSION_LENGTH}:00" for hour in range(START_HOUR, END_HOUR, SESSION_LENGTH)]
 
+# Filter available time slots on a given date
 def get_available_slots(date_str):
     all_slots = get_all_slots()
     bookings = load_bookings()
@@ -46,6 +47,7 @@ def get_available_slots(date_str):
             available.append(slot)
     return available
 
+# Check which future dates have available slots
 def get_dates_with_availability(days_ahead=30):
     today = datetime.date.today()
     dates = []
@@ -56,12 +58,13 @@ def get_dates_with_availability(days_ahead=30):
     return dates
 
 # --- Streamlit UI ---
+st.set_page_config(page_title="School Slot Booking", page_icon="🎓")
 st.title("🎓 School Training Slot Booking")
 st.info("Each session is 2 hours. A school may book a maximum of 2 sessions on different days. "
         "Each time slot can hold up to 3 teams. Each day can host a maximum of 6 teams.")
 
-school = st.text_input("School Name")
-contact = st.text_input("Contact Email or Phone")
+school = st.text_input("🏫 School Name")
+contact = st.text_input("📞 Contact Email or Phone")
 
 available_dates = get_dates_with_availability()
 
@@ -69,16 +72,16 @@ if not available_dates:
     st.error("❌ No available dates in the next 30 days.")
     st.stop()
 
-date = st.selectbox("Choose an available date", available_dates)
+date = st.selectbox("📅 Choose an available date", available_dates)
 available_slots = get_available_slots(str(date))
 
 if not available_slots:
     st.warning("⚠ No slots left for this day. Please choose another date.")
     st.stop()
 
-time_slot = st.selectbox("Choose a time slot", available_slots)
+time_slot = st.selectbox("🕒 Choose a time slot", available_slots)
 
-if st.button("Book This Slot"):
+if st.button("✅ Book This Slot"):
     bookings = load_bookings()
     school_bookings = bookings[bookings["School"] == school]
 
