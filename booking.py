@@ -3,6 +3,9 @@ import pandas as pd
 import datetime
 from streamlit_gsheets import GSheetsConnection
 
+# ✅ Page config must come before any other Streamlit command
+st.set_page_config(page_title="School Slot Booking", page_icon="🎓")
+
 # Constants
 SESSIONS_PER_SCHOOL = 2
 SESSION_LENGTH = 2
@@ -58,7 +61,6 @@ def get_dates_with_availability(days_ahead=30):
     return dates
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="School Slot Booking", page_icon="🎓")
 st.title("🎓 School Training Slot Booking")
 st.info("Each session is 2 hours. A school may book a maximum of 2 sessions on different days. "
         "Each time slot can hold up to 3 teams. Each day can host a maximum of 6 teams.")
